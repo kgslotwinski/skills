@@ -1,6 +1,6 @@
 ---
 name: easy-admin-bundle
-version: 1.0.0
+version: 1.1.0
 compatibility:
   easyadmin: "^4.0"
   php: ">=8.1"
@@ -18,6 +18,8 @@ Build powerful Symfony admin panels quickly with EasyAdminBundle. This skill pro
 > **Requirements:** PHP 8.1+, Symfony 5.4/6.x/7.x/8.x, Doctrine ORM
 > **Official Docs:** https://github.com/EasyCorp/EasyAdminBundle/tree/4.x/doc
 > **Repository:** https://github.com/EasyCorp/EasyAdminBundle
+>
+> **📚 Quick Reference:** See [API Reference](#api-reference) section for complete field types, actions, and CRUD configuration methods
 
 ## Quick Start
 
@@ -1003,6 +1005,31 @@ php bin/console make:admin:dashboard
 # Generate CRUD controllers
 php bin/console make:admin:crud
 ```
+
+## API Reference
+
+Complete API reference for quick lookup. See files in `references/` directory:
+
+### [📋 Fields](references/fields.md)
+Complete list of all 31 field types with their configuration methods:
+- **Common Methods**: hideOnIndex(), onlyOnForms(), setColumns(), setRequired(), etc.
+- **Field Types**: TextField, AssociationField, ImageField, MoneyField, DateTimeField, BooleanField, ChoiceField, and 24 more
+- **Form Layout**: FormField panels, tabs, columns, rows
+- **Doctrine Mappings**: Type to field mappings
+
+### [⚡ Actions](references/actions.md)
+Actions API and configuration methods:
+- **Built-in Actions**: INDEX, DETAIL, EDIT, NEW, DELETE, SAVE_AND_RETURN, etc.
+- **Configuration**: add(), remove(), update(), disable(), setPermission(), reorder()
+- **Custom Actions**: linkToCrudAction(), linkToRoute(), linkToUrl()
+- **Batch Actions**: addBatchAction(), BatchActionDto usage
+
+### [🔧 CRUD](references/crud.md)
+CRUD controller configuration and lifecycle methods:
+- **configureCrud()**: setEntityLabelInSingular(), setSearchFields(), setDefaultSort(), setPaginatorPageSize(), etc.
+- **Query Builders**: createIndexQueryBuilder(), createEditQueryBuilder(), createNewQueryBuilder()
+- **Lifecycle**: createEntity(), persistEntity(), updateEntity(), deleteEntity()
+- **Routes & Context**: AdminContext, generateUrl(), getReferrer()
 
 ## Official Documentation
 
