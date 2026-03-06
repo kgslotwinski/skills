@@ -1,197 +1,407 @@
 # EasyAdmin CRUD Configuration API Reference
 
+Complete reference for CRUD controller configuration, lifecycle methods, and query customization.
+
+## Table of Contents
+
+- [Required Configuration](#required-configuration)
+- [configureCrud() Methods](#configurecrud-methods)
+- [configureFields()](#configurefields)
+- [Lifecycle Methods](#lifecycle-methods)
+- [Query Builders](#query-builders)
+- [Events](#events)
+- [URL Generation](#url-generation)
+
+---
+
 ## Required Configuration
 
 ### Entity FQCN
+
 ```php
 public static function getEntityFqcn(): string
 {
-    return Entity::class;
+    return Product::class;
 }
 ```
 
+---
+
 ## configureCrud() Methods
 
-### Design Options
+### Entity Labels
+
 ```php
-$crud->renderContentMaximized()        // Full browser width
-$crud->renderSidebarMinimized()        // Narrow sidebar
+public function configureCrud(Crud $crud): Crud
+{
+    return $crud
+        ->setEntityLabelInSingular('Product')
+        ->setEntityLabelInSingular(fn(?Product $p) => $p ? $p->getName() : 'Product')
+        ->setEntityLabelInPlural('Products');
+}
 ```
 
-### Entity Options
+### Page Titles
+
 ```php
-$crud->setEntityLabelInSingular(string|callable $label)
-$crud->setEntityLabelInPlural(string|callable $label)
-$crud->setEntityPermission(string $permission)
+$crud
+    ->setPageTitle('index', 'Product Catalog')
+    ->setPageTitle('edit', 'Edit %entity_label_singular%')
+    ->setPageTitle('detail', fn(Product $p) => $p->getName());
 ```
 
-**Callable signatures:**
-- `fn(?Entity $entity, ?string $pageName): string`
-
-### Page Titles and Help
-```php
-$crud->setPageTitle(string $pageName, string|callable $title)
-$crud->setHelp(string $pageName, string $help)
-```
-
-**Available placeholders in titles:**
+**Available placeholders:**
 - `%entity_name%` - Entity class name
-- `%entity_as_string%` - Entity __toString()
+- `%entity_as_string%` - Entity `__toString()`
 - `%entity_id%` - Entity ID
-- `%entity_short_id%` - Shortened entity ID
+- `%entity_short_id%` - Shortened ID
 - `%entity_label_singular%` - Singular label
 - `%entity_label_plural%` - Plural label
 
-**Callable signature for title:**
-- `fn(Entity $entity): string` (for DETAIL and EDIT pages)
-
-### Date, Time, Number Formats
-```php
-$crud->setDateFormat(string $format)
-$crud->setTimeFormat(string $format)
-$crud->setDateTimeFormat(string $dateFormat, ?string $timeFormat = null)
-$crud->setDateIntervalFormat(string $format)
-$crud->setTimezone(string $timezone)
-```
-
-**Format options:**
-- Predefined: `'short'`, `'medium'`, `'long'`, `'full'`, `'none'`
-- Constants: `DateTimeField::FORMAT_SHORT`, etc.
-- ICU Datetime Pattern: `'yyyy.MM.dd HH:mm:ss'`
+### Page Help Text
 
 ```php
-$crud->setNumberFormat(string $format)
-$crud->setThousandsSeparator(string $separator)
-$crud->setDecimalSeparator(string $separator)
+$crud->setHelp('index', 'Manage your product catalog')
+    ->setHelp('edit', 'Update product information');
 ```
 
 ### Search Configuration
+
 ```php
-$crud->setSearchFields(array|null $fields)
-$crud->setAutofocusSearch()
-$crud->setSearchMode(string $mode)
+$crud
+    ->setSearchFields(['name', 'sku', 'description'])
+    ->setSearchFields(['seller.email', 'seller.address.zipCode'])  // Nested properties
+    ->setSearchFields(null)                                         // Disable search
+    ->setAutofocusSearch()
+    ->setSearchMode(SearchMode::ALL_TERMS)                         // AND logic (default)
+    ->setSearchMode(SearchMode::ANY_TERMS);                        // OR logic
 ```
-
-**Search modes:**
-- `SearchMode::ALL_TERMS` - Match all terms (AND logic)
-- `SearchMode::ANY_TERMS` - Match any term (OR logic)
-
-**Search field examples:**
-- Simple: `['name', 'description']`
-- Associations: `['seller.email', 'seller.address.zipCode']`
-- Disable: `null`
 
 ### Sorting and Pagination
+
 ```php
-$crud->setDefaultSort(array $sort)
-$crud->setPaginatorPageSize(int $size)
-$crud->setPaginatorRangeSize(int $range)
-$crud->setPaginatorUseOutputWalkers(bool $use)
-$crud->setPaginatorFetchJoinCollection(bool $fetch)
+$crud
+    ->setDefaultSort(['createdAt' => 'DESC'])
+    ->setDefaultSort(['id' => 'DESC', 'name' => 'ASC'])
+    ->setDefaultSort(['seller.name' => 'ASC'])                     // One level deep only
+    ->setPaginatorPageSize(30)
+    ->setPaginatorRangeSize(5)                                     // Number of page links
+    ->setPaginatorUseOutputWalkers(false)                          // Performance optimization
+    ->setPaginatorFetchJoinCollection(true);                       // Fetch joined collections
 ```
 
-**Sort examples:**
+### Date/Time Formats
+
 ```php
-['id' => 'DESC']
-['id' => 'DESC', 'title' => 'ASC']
-['seller.name' => 'ASC']  // One level deep
+$crud
+    ->setDateFormat('yyyy-MM-dd')                                  // ICU pattern
+    ->setDateFormat('short')                                       // Predefined: short, medium, long, full
+    ->setTimeFormat('HH:mm')
+    ->setDateTimeFormat('yyyy-MM-dd', 'HH:mm:ss')
+    ->setDateIntervalFormat('%y years %m months')
+    ->setTimezone('America/New_York');
 ```
 
-### Autocomplete Configuration
+### Number Formats
+
+```php
+$crud
+    ->setNumberFormat('%.2f')                                      // sprintf format
+    ->setThousandsSeparator(',')
+    ->setDecimalSeparator('.');
+```
+
+### Display Options
+
+```php
+$crud
+    ->renderContentMaximized()                                     // Full width
+    ->renderSidebarMinimized()                                     // Narrow sidebar
+    ->hideNullValues()                                             // Hide null values
+    ->showEntityActionsInlined();                                  // Inline actions (not dropdown)
+```
+
+### Row Actions
+
+```php
+$crud
+    ->setDefaultRowAction(Action::EDIT)                            // Single action
+    ->setDefaultRowAction([Action::DETAIL, Action::EDIT])         // Fallback chain
+    ->setDefaultRowAction(null)                                    // Disable row click
+    ->setRowClickTrigger('td:first-child')                        // Custom trigger selector
+    ->setRowClickTrigger(null);                                    // Disable entirely
+```
+
+### Autocomplete
+
 ```php
 $crud->autocomplete(
-    bool $enable = true,
-    ?callable $callback = null,
-    ?string $template = null,
-    bool $renderAsHtml = false
-)
+    enable: true,
+    callback: fn($entity) => sprintf('%s (#%d)', $entity->getName(), $entity->getId()),
+    template: 'admin/autocomplete/product.html.twig',
+    renderAsHtml: true
+);
 ```
 
-**Callback signature:**
-- `fn($entity): string`
+### Security
 
-**Template variables:**
-- `entity` - The entity instance
-
-### Template and Form Options
 ```php
-$crud->overrideTemplate(string $templateName, string $templatePath)
-$crud->addFormTheme(string $theme)
-$crud->setFormThemes(array $themes)
-$crud->setFormOptions(array $options)
-$crud->setFormOptions(array $newOptions, array $editOptions)
+$crud->setEntityPermission('ROLE_ADMIN');                          // Required for all operations
 ```
 
-### Default Row Action
+### Forms
+
 ```php
-$crud->setDefaultRowAction(string|array|null $action)
+$crud
+    ->setFormThemes(['@EasyAdmin/crud/form_theme.html.twig', 'admin/form_theme.html.twig'])
+    ->addFormTheme('admin/custom_theme.html.twig')
+    ->setFormOptions(['validation_groups' => ['Default', 'create']])
+    ->setFormOptions(
+        ['validation_groups' => ['Default', 'create']],            // New form options
+        ['validation_groups' => ['Default', 'edit']]               // Edit form options
+    );
 ```
 
-**Options:**
-- Single action: `Action::EDIT`, `Action::DETAIL`, `'customAction'`
-- Fallback array: `[Action::EDIT, Action::DETAIL]`
-- `null` - Disable row click
+### Templates
+
+```php
+$crud->overrideTemplate('crud/index', 'admin/custom_index.html.twig')
+    ->overrideTemplate('crud/detail', 'admin/custom_detail.html.twig');
+```
+
+**Common template names:**
+- `crud/index` - List page
+- `crud/detail` - Detail page
+- `crud/edit` - Edit/new page
+- `crud/field/*` - Field rendering templates
+- `layout` - Main layout
+- `menu` - Sidebar menu
 
 ### Batch Actions
+
 ```php
-$crud->askConfirmationOnBatchActions(bool|string|TranslatableInterface $config)
+$crud->askConfirmationOnBatchActions('Perform action on %num_items% items?');
+$crud->askConfirmationOnBatchActions(true);                        // Default message
+$crud->askConfirmationOnBatchActions(false);                       // Disable confirmation
 ```
 
-**Placeholders:**
-- `%action_name%` - Batch action name
-- `%num_items%` - Number of items
+---
 
-### Misc Options
-```php
-$crud->hideNullValues()
-$crud->showEntityActionsInlined()
-```
-
-## configureFields() Method
+## configureFields()
 
 ### Method Signature
+
 ```php
 public function configureFields(string $pageName): iterable
+{
+    // $pageName: Crud::PAGE_INDEX, Crud::PAGE_DETAIL, Crud::PAGE_EDIT, Crud::PAGE_NEW
+
+    // Return array or yield fields
+    yield IdField::new('id')->onlyOnIndex();
+    yield TextField::new('name');
+}
 ```
 
-**Return types:**
-- Array of field objects
-- Array of property name strings
-- Generator (using `yield`)
+### Page-Specific Configuration
 
-### Page-specific Fields
-Use `$pageName` parameter:
-- `Crud::PAGE_INDEX`
-- `Crud::PAGE_DETAIL`
-- `Crud::PAGE_EDIT`
-- `Crud::PAGE_NEW`
+```php
+public function configureFields(string $pageName): iterable
+{
+    yield IdField::new('id')->hideOnForm();
+    yield TextField::new('name');
 
-## CRUD Controller Lifecycle Methods
+    if ($pageName === Crud::PAGE_EDIT) {
+        yield DateTimeField::new('updatedAt')->setFormTypeOptions(['disabled' => true]);
+    }
 
-### Entity Creation and Persistence
+    if ($pageName === Crud::PAGE_INDEX) {
+        yield TextField::new('summary');
+    } else {
+        yield TextEditorField::new('content');
+    }
+}
+```
+
+---
+
+## Lifecycle Methods
+
+### Entity Creation
+
 ```php
 public function createEntity(string $entityFqcn)
-public function updateEntity(EntityManagerInterface $em, $entity): void
-public function persistEntity(EntityManagerInterface $em, $entity): void
-public function deleteEntity(EntityManagerInterface $em, $entity): void
+{
+    $product = new Product();
+    $product->setCreatedAt(new \DateTime());
+    $product->setCreatedBy($this->getUser());
+    return $product;
+}
 ```
 
-### Query Builder Customization
+### Persistence
+
 ```php
+public function persistEntity(EntityManagerInterface $em, $entityInstance): void
+{
+    if ($entityInstance instanceof Product) {
+        $entityInstance->setSlug($this->slugger->slug($entityInstance->getName()));
+    }
+
+    parent::persistEntity($em, $entityInstance);
+}
+
+public function updateEntity(EntityManagerInterface $em, $entityInstance): void
+{
+    if ($entityInstance instanceof Product) {
+        $entityInstance->setUpdatedAt(new \DateTime());
+        $entityInstance->setUpdatedBy($this->getUser());
+    }
+
+    parent::updateEntity($em, $entityInstance);
+}
+
+public function deleteEntity(EntityManagerInterface $em, $entityInstance): void
+{
+    // Hard delete
+    parent::deleteEntity($em, $entityInstance);
+
+    // Or soft delete
+    if ($entityInstance instanceof SoftDeletable) {
+        $entityInstance->setDeletedAt(new \DateTime());
+        $em->flush();
+    } else {
+        parent::deleteEntity($em, $entityInstance);
+    }
+}
+```
+
+---
+
+## Query Builders
+
+### Index Query Builder
+
+```php
+use Doctrine\ORM\QueryBuilder;
+use EasyCorp\Bundle\EasyAdminBundle\Collection\{FieldCollection, FilterCollection};
+use EasyCorp\Bundle\EasyAdminBundle\Dto\{EntityDto, SearchDto};
+
 public function createIndexQueryBuilder(
     SearchDto $searchDto,
     EntityDto $entityDto,
     FieldCollection $fields,
     FilterCollection $filters
-): QueryBuilder
+): QueryBuilder {
+    $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
+
+    // Only show active products
+    $qb->andWhere('entity.isActive = :active')
+       ->setParameter('active', true);
+
+    // Multi-tenant filtering
+    if (!$this->isGranted('ROLE_ADMIN')) {
+        $qb->andWhere('entity.tenant = :tenant')
+           ->setParameter('tenant', $this->getUser()->getTenant());
+    }
+
+    // Soft delete support
+    $qb->andWhere('entity.deletedAt IS NULL');
+
+    return $qb;
+}
 ```
+
+### Other Query Builders
+
+```php
+public function createEditQueryBuilder(/* ... */): QueryBuilder { }
+public function createNewQueryBuilder(/* ... */): QueryBuilder { }
+public function createDetailQueryBuilder(/* ... */): QueryBuilder { }
+```
+
+---
+
+## Events
+
+### Available Events
+
+```php
+use EasyCorp\Bundle\EasyAdminBundle\Event\*;
+
+// Entity events
+BeforeEntityPersistedEvent::class    // Before creating entity
+AfterEntityPersistedEvent::class     // After creating entity
+BeforeEntityUpdatedEvent::class      // Before updating entity
+AfterEntityUpdatedEvent::class       // After updating entity
+BeforeEntityDeletedEvent::class      // Before deleting entity
+AfterEntityDeletedEvent::class       // After deleting entity
+
+// CRUD events
+BeforeCrudActionEvent::class         // Before any CRUD action
+AfterCrudActionEvent::class          // After any CRUD action
+```
+
+### Event Subscriber Example
+
+```php
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
+class ProductSubscriber implements EventSubscriberInterface
+{
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            BeforeEntityPersistedEvent::class => 'setDefaults',
+            BeforeEntityUpdatedEvent::class => 'updateTimestamp',
+        ];
+    }
+
+    public function setDefaults(BeforeEntityPersistedEvent $event): void
+    {
+        $entity = $event->getEntityInstance();
+
+        if (!$entity instanceof Product) {
+            return;
+        }
+
+        $entity->setCreatedAt(new \DateTime());
+        $entity->setSku($this->generateSku());
+    }
+
+    public function updateTimestamp(BeforeEntityUpdatedEvent $event): void
+    {
+        $entity = $event->getEntityInstance();
+
+        if (!$entity instanceof Product) {
+            return;
+        }
+
+        $entity->setUpdatedAt(new \DateTime());
+    }
+}
+```
+
+---
+
+## Response Customization
 
 ### Template Variables
+
 ```php
+use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
+
 public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
+{
+    if (Crud::PAGE_DETAIL === $responseParameters->get('pageName')) {
+        $responseParameters->set('custom_var', 'value');
+        $responseParameters->set('product_stats', $this->getProductStats());
+    }
+
+    return $responseParameters;
+}
 ```
 
-**Key methods:**
+**Methods:**
 - `$responseParameters->get(string $key)`
 - `$responseParameters->set(string $key, $value)`
 - `$responseParameters->has(string $key)`
@@ -199,84 +409,86 @@ public function configureResponseParameters(KeyValueStore $responseParameters): 
 
 **Supports dot notation:**
 ```php
-$responseParameters->set('bar.foo', 'value')
-// Equivalent to: $parameters['bar']['foo'] = 'value'
+$responseParameters->set('stats.total', 100);  // $parameters['stats']['total'] = 100
 ```
-
-**Mandatory keys:**
-- `templateName` or `templatePath` - Template to render
 
 ### Redirect After Save
+
 ```php
-protected function getRedirectResponseAfterSave(
-    AdminContext $context,
-    string $action
-): RedirectResponse
-```
-
-## CRUD Routes Configuration
-
-### Dashboard-level (AdminDashboard attribute)
-```php
-#[AdminDashboard(routePath: '/admin', routeName: 'admin', routes: [
-    'index' => ['routePath' => '/all', 'routeName' => 'list'],
-    'new' => ['routePath' => '/create'],
-    'edit' => ['routePath' => '/{entityId}/edit'],
-    'delete' => ['routePath' => '/remove/{entityId}'],
-    'detail' => ['routeName' => 'view'],
-])]
-```
-
-### Controller-level (AdminRoute attribute)
-```php
-#[AdminRoute(path: '/custom-path', name: 'custom_name')]
-class CustomCrudController extends AbstractCrudController
-```
-
-### Action-level (AdminRoute attribute)
-```php
-#[AdminRoute(path: '/custom-action', name: 'custom')]
-public function customAction(AdminContext $context) { }
-```
-
-## Default CRUD Routes
-
-| Action | Default Path | Default Name Suffix |
-|--------|-------------|-------------------|
-| index | `/` | `_index` |
-| new | `/new` | `_new` |
-| edit | `/{entityId}/edit` | `_edit` |
-| detail | `/{entityId}` | `_detail` |
-| delete | `/{entityId}/delete` | `_delete` |
-| batch_delete | `/batch-delete` | `_batch_delete` |
-| autocomplete | `/autocomplete` | `_autocomplete` |
-
-## AdminContext Access
-
-### In Controllers
-```php
-public function someAction(AdminContext $context)
+protected function getRedirectResponseAfterSave(AdminContext $context, string $action): RedirectResponse
 {
-    $entity = $context->getEntity()->getInstance();
-    $crud = $context->getCrud();
-    $request = $context->getRequest();
+    $submitButtonName = $context->getRequest()->request->all()['ea']['newForm']['btn'] ?? '';
+
+    if ('saveAndViewDetail' === $submitButtonName) {
+        $url = $this->adminUrlGenerator
+            ->setAction(Action::DETAIL)
+            ->setEntityId($context->getEntity()->getPrimaryKeyValue())
+            ->generateUrl();
+
+        return $this->redirect($url);
+    }
+
+    return parent::getRedirectResponseAfterSave($context, $action);
 }
 ```
 
-### Key Methods
-```php
-$context->getEntity()           // EntityDto
-$context->getCrud()             // CrudDto
-$context->getRequest()          // Request
-$context->getI18n()            // I18nDto
-$context->getAssets()          // AssetsDto
-$context->getDashboardRouteName()
-$context->getDashboardControllerFqcn()
-```
+---
 
 ## URL Generation
 
-### Pretty URLs (Recommended)
+### AdminContext
+
+```php
+use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
+
+public function customAction(AdminContext $context): Response
+{
+    $entity = $context->getEntity()->getInstance();
+    $entityId = $context->getEntity()->getPrimaryKeyValue();
+    $crud = $context->getCrud();
+    $request = $context->getRequest();
+    $dashboardFqcn = $context->getDashboardControllerFqcn();
+    $dashboardRoute = $context->getDashboardRouteName();
+    $referrer = $context->getReferrer();
+
+    // ...
+}
+```
+
+### AdminUrlGenerator
+
+```php
+use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+
+public function __construct(private AdminUrlGenerator $adminUrlGenerator) {}
+
+public function someAction(): Response
+{
+    $url = $this->adminUrlGenerator
+        ->setController(ProductCrudController::class)
+        ->setAction(Action::EDIT)
+        ->setEntityId($id)
+        ->set('customParam', 'value')
+        ->unset('menuIndex')
+        ->unsetAll()
+        ->generateUrl();
+
+    return $this->redirect($url);
+}
+```
+
+### From Outside EasyAdmin Context
+
+```php
+$url = $this->adminUrlGenerator
+    ->setDashboard(DashboardController::class)        // Required when outside context
+    ->setController(ProductCrudController::class)
+    ->setAction(Action::INDEX)
+    ->generateUrl();
+```
+
+### Route-Based (Recommended)
+
 ```php
 // Controller
 return $this->redirectToRoute('admin_product_edit', ['entityId' => $id]);
@@ -285,96 +497,78 @@ return $this->redirectToRoute('admin_product_edit', ['entityId' => $id]);
 {{ path('admin_product_detail', {entityId: product.id}) }}
 ```
 
-### AdminUrlGenerator
-```php
-$url = $adminUrlGenerator
-    ->setController(ProductCrudController::class)
-    ->setAction(Action::INDEX)
-    ->setEntityId($id)
-    ->set('customParam', 'value')
-    ->unset('menuIndex')
-    ->unsetAll()
-    ->generateUrl();
-```
-
-**Template:**
-```twig
-{% set url = ea_url()
-    .setController('App\\Controller\\Admin\\ProductCrudController')
-    .setAction('edit')
-    .setEntityId(product.id) %}
-```
-
-### From Outside EasyAdmin
-Must specify dashboard and controller:
-```php
-$url = $adminUrlGenerator
-    ->setDashboard(DashboardController::class)
-    ->setController(ProductCrudController::class)
-    ->setAction(Action::INDEX)
-    ->generateUrl();
-```
+---
 
 ## Dashboard Global Configuration
 
-Define `configureCrud()` in dashboard controller to apply settings to all CRUD controllers:
+Apply settings to all CRUD controllers:
 
 ```php
+// src/Controller/Admin/DashboardController.php
 class DashboardController extends AbstractDashboardController
 {
     public function configureCrud(): Crud
     {
         return Crud::new()
             ->setPaginatorPageSize(30)
-            ->setDateFormat('yyyy-MM-dd')
-            // ... other global settings
-        ;
+            ->setDateFormat('dd/MM/yyyy')
+            ->setTimezone('UTC')
+            ->renderContentMaximized();
     }
 }
 ```
 
 Individual CRUD controllers can override these settings.
 
-## Events
+---
 
-EasyAdmin triggers events during CRUD operations:
+## Custom Routes
 
-### Entity Events
-- `BeforeEntityPersistedEvent` - Before persisting new entity
-- `AfterEntityPersistedEvent` - After persisting new entity
-- `BeforeEntityUpdatedEvent` - Before updating entity
-- `AfterEntityUpdatedEvent` - After updating entity
-- `BeforeEntityDeletedEvent` - Before deleting entity
-- `AfterEntityDeletedEvent` - After deleting entity
+### Dashboard Level
 
-### Action Events
-- `BeforeCrudActionEvent` - Before any CRUD action
-- `AfterCrudActionEvent` - After any CRUD action
-
-### Usage
 ```php
-class EntitySubscriber implements EventSubscriberInterface
-{
-    public static function getSubscribedEvents()
-    {
-        return [
-            BeforeEntityPersistedEvent::class => 'onBeforePersist',
-        ];
-    }
+use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 
-    public function onBeforePersist(BeforeEntityPersistedEvent $event)
-    {
-        $entity = $event->getEntityInstance();
-        // Modify entity
-    }
-}
+#[AdminDashboard(
+    routePath: '/admin',
+    routeName: 'admin',
+    routes: [
+        'index' => ['routePath' => '/products', 'routeName' => 'list'],
+        'new' => ['routePath' => '/product/new'],
+        'edit' => ['routePath' => '/product/{entityId}/edit'],
+    ]
+)]
+class DashboardController extends AbstractDashboardController
 ```
+
+### Controller Level
+
+```php
+#[AdminRoute(path: '/products', name: 'products')]
+class ProductCrudController extends AbstractCrudController
+```
+
+### Action Level
+
+```php
+#[AdminRoute(path: '/export', name: 'export')]
+public function exportAction(AdminContext $context): Response
+```
+
+**Final route:** `/admin` + controller path + action path
+**Final name:** `admin_` + controller name + `_` + action name
+
+---
 
 ## Field Configurators
 
-Custom field processing during runtime:
+Custom field processing at runtime:
 
 ```php
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Field\FieldConfiguratorInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Dto\{FieldDto, EntityDto};
+use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
+
 class CustomFieldConfigurator implements FieldConfiguratorInterface
 {
     public function supports(FieldDto $field, EntityDto $entityDto): bool
@@ -384,26 +578,23 @@ class CustomFieldConfigurator implements FieldConfiguratorInterface
 
     public function configure(FieldDto $field, EntityDto $entityDto, AdminContext $context): void
     {
-        // Modify field configuration
+        // Modify field configuration dynamically
+        $field->setFormattedValue(strtoupper($field->getValue()));
     }
 }
 ```
 
-Tag service with `ea.field_configurator` (optional priority attribute).
+Tag service with `ea.field_configurator` (with optional priority).
 
-## Template Names
+---
 
-Common template names for `overrideTemplate()`:
+## Quick Tips
 
-- `crud/index` - Index page
-- `crud/detail` - Detail page
-- `crud/edit` - Edit/new page
-- `crud/field/id` - ID field rendering
-- `crud/field/text` - Text field rendering
-- `crud/field/association` - Association field rendering
-- `layout` - Main layout
-- `menu` - Menu sidebar
-- `flash_messages` - Flash messages
-- `label/null` - Null value label
-
-Use `ea.templatePath('templateName')` in Twig to get full path.
+1. **Performance:** Override `createIndexQueryBuilder()` to add eager loading with `->leftJoin()` for associations
+2. **Security:** Use `setEntityPermission()` for blanket permissions, `displayIf()` in actions for granular control
+3. **Multi-tenant:** Filter in `createIndexQueryBuilder()` and set tenant in `persistEntity()`
+4. **Soft delete:** Filter `deletedAt IS NULL` in query builder, implement soft delete in `deleteEntity()`
+5. **Audit:** Use events (BeforeEntityUpdatedEvent) or override lifecycle methods
+6. **Custom redirects:** Override `getRedirectResponseAfterSave()` for custom post-save behavior
+7. **Template vars:** Use `configureResponseParameters()` to pass custom variables to templates
+8. **Forms:** Use `setFormOptions()` for validation groups, form themes, and other Symfony form options

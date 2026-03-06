@@ -1,315 +1,463 @@
 # EasyAdmin Actions API Reference
 
+Complete reference for actions, batch operations, and action configuration.
+
+## Table of Contents
+
+- [Built-in Actions](#built-in-actions)
+- [Actions Configuration](#actions-configuration)
+- [Action Creation](#action-creation)
+- [Batch Actions](#batch-actions)
+- [Action Groups](#action-groups)
+
+---
+
 ## Built-in Actions
 
-### Index Page (Crud::PAGE_INDEX)
-**Default global actions:**
-- `Action::NEW` - Create new entity
+### Available by Page
 
-**Default per-entry actions:**
-- `Action::EDIT` - Edit entity
-- `Action::DELETE` - Delete entity
+**INDEX page (Crud::PAGE_INDEX):**
+- `Action::NEW` - Create new entity (global)
+- `Action::EDIT` - Edit entity (per-row, default)
+- `Action::DELETE` - Delete entity (per-row, default)
+- `Action::DETAIL` - View details (per-row, optional)
 
-**Other available actions:**
-- `Action::DETAIL` - View entity details
+**DETAIL page (Crud::PAGE_DETAIL):**
+- `Action::EDIT` - Edit entity (default)
+- `Action::DELETE` - Delete entity (default)
+- `Action::INDEX` - Back to list (default)
 
-### Detail Page (Crud::PAGE_DETAIL)
-**Default actions:**
-- `Action::EDIT` - Edit entity
-- `Action::DELETE` - Delete entity
-- `Action::INDEX` - Back to listing
+**EDIT page (Crud::PAGE_EDIT):**
+- `Action::SAVE_AND_RETURN` - Save and return (default)
+- `Action::SAVE_AND_CONTINUE` - Save and stay (default)
+- `Action::DELETE` - Delete entity (optional)
+- `Action::DETAIL` - View details (optional)
+- `Action::INDEX` - Back to list (optional)
 
-### Edit Page (Crud::PAGE_EDIT)
-**Default actions:**
-- `Action::SAVE_AND_RETURN` - Save and go back
-- `Action::SAVE_AND_CONTINUE` - Save and stay on page
+**NEW page (Crud::PAGE_NEW):**
+- `Action::SAVE_AND_RETURN` - Save and return (default)
+- `Action::SAVE_AND_ADD_ANOTHER` - Save and create new (default)
+- `Action::SAVE_AND_CONTINUE` - Save and edit (optional)
+- `Action::INDEX` - Back to list (optional)
 
-**Other available actions:**
-- `Action::DELETE` - Delete entity
-- `Action::DETAIL` - View details
-- `Action::INDEX` - Back to listing
-
-### New Page (Crud::PAGE_NEW)
-**Default actions:**
-- `Action::SAVE_AND_RETURN` - Save and go back
-- `Action::SAVE_AND_ADD_ANOTHER` - Save and create another
-
-**Other available actions:**
-- `Action::SAVE_AND_CONTINUE` - Save and go to edit page
-- `Action::INDEX` - Back to listing
+---
 
 ## Actions Configuration
 
-### Main Methods (in configureActions())
+### Main Methods
 
-**Adding Actions:**
 ```php
-$actions->add(string $pageName, Action $action)
+use EasyCorp\Bundle\EasyAdminBundle\Config\{Action, Actions, Crud};
+
+public function configureActions(Actions $actions): Actions
+{
+    // Add action to page
+    $actions->add(string $pageName, Action $action)
+
+    // Remove action from page
+    $actions->remove(string $pageName, string $actionName)
+
+    // Disable action globally (all pages)
+    $actions->disable(string ...$actionNames)
+
+    // Update existing action
+    $actions->update(string $pageName, string $actionName, callable $callback)
+
+    // Set permission
+    $actions->setPermission(string $actionName, string $permission)
+
+    // Reorder actions
+    $actions->reorder(string $pageName, array $actionNames)
+
+    // Disable automatic ordering
+    $actions->disableAutomaticOrdering()
+
+    // Add batch action
+    $actions->addBatchAction(Action $action)
+
+    return $actions;
+}
 ```
 
-**Removing Actions:**
+### Examples
+
 ```php
-$actions->remove(string $pageName, string $actionName)
+public function configureActions(Actions $actions): Actions
+{
+    return $actions
+        // Add DETAIL to index page
+        ->add(Crud::PAGE_INDEX, Action::DETAIL)
+
+        // Remove DELETE from index
+        ->remove(Crud::PAGE_INDEX, Action::DELETE)
+
+        // Disable DELETE everywhere
+        ->disable(Action::DELETE)
+
+        // Set permission
+        ->setPermission(Action::DELETE, 'ROLE_SUPER_ADMIN')
+
+        // Update existing action
+        ->update(Crud::PAGE_INDEX, Action::EDIT, function (Action $action) {
+            return $action
+                ->setIcon('fa fa-pencil')
+                ->displayIf(fn($entity) => $this->canEdit($entity));
+        })
+
+        // Reorder actions
+        ->reorder(Crud::PAGE_INDEX, [
+            Action::DETAIL,
+            Action::EDIT,
+            Action::DELETE,
+        ]);
+}
 ```
 
-**Updating Actions:**
-```php
-$actions->update(string $pageName, string $actionName, callable $callback)
-```
-- Callback receives Action object, should return modified Action
-
-**Disabling Actions:**
-```php
-$actions->disable(string ...$actionNames)
-```
-- Disables globally (all pages)
-
-**Restricting Actions:**
-```php
-$actions->setPermission(string $actionName, string $permission)
-```
-- Requires Symfony security permission
-
-**Reordering Actions:**
-```php
-$actions->reorder(string $pageName, array $actionNames)
-```
-
-**Disable Automatic Ordering:**
-```php
-$actions->disableAutomaticOrdering()
-```
-
-**Add Batch Action:**
-```php
-$actions->addBatchAction(Action $action)
-```
+---
 
 ## Action Creation
 
 ### Constructor
+
 ```php
 Action::new(string $name, ?string $label = null, ?string $icon = null)
 ```
 
-### Link Target Methods
+### Link Target
+
 ```php
-->linkToCrudAction(string $actionName)
-->linkToRoute(string $routeName, array|callable $routeParameters = [])
-->linkToUrl(string|callable $url)
+// Link to CRUD action (method in same controller)
+->linkToCrudAction('methodName')
+
+// Link to Symfony route
+->linkToRoute('route_name', ['param' => 'value'])
+->linkToRoute('route_name', fn($entity) => ['id' => $entity->getId()])
+
+// Link to URL
+->linkToUrl('https://example.com')
+->linkToUrl(fn($entity) => sprintf('/custom/%d', $entity->getId()))
 ```
 
-### Rendering Methods
+### Rendering
+
 ```php
-->renderAsLink()
-->renderAsButton(string $type = 'submit')
-->renderAsForm()  // POST request via hidden form
+->renderAsLink()                    // Link (default for per-entity)
+->renderAsButton('submit')          // Button
+->renderAsForm()                    // Hidden form with POST
 ```
 
-### Styling Methods
-```php
-->asDefaultAction()     // btn-secondary
-->asPrimaryAction()     // btn-primary
-->asSuccessAction()     // btn-success
-->asWarningAction()     // btn-warning
-->asDangerAction()      // btn-danger
-->asTextLink()          // Text link without button background
-```
+### Styling
 
-### CSS and HTML
 ```php
-->setCssClass(string $class)
-->addCssClass(string $class)
-->setHtmlAttributes(array $attributes)
+->asDefaultAction()                 // btn-secondary
+->asPrimaryAction()                 // btn-primary
+->asSuccessAction()                 // btn-success
+->asWarningAction()                 // btn-warning
+->asDangerAction()                  // btn-danger
+->asTextLink()                      // Plain text link
+
+->setCssClass('btn btn-info')       // Replace classes
+->addCssClass('custom-class')       // Add class
+->setHtmlAttributes([...])
 ```
 
 ### Icon and Label
+
 ```php
-->setIcon(string $iconClass)
-->setLabel(string|callable $label)
+->setIcon('fa fa-download')
+->setLabel('Export')
+->setLabel(fn($entity) => "Export {$entity->getName()}")
 ```
-- Callable receives entity instance
 
 ### Conditional Display
-```php
-->displayIf(callable $callback)
-```
-- Callback signature: `fn($entity): bool`
-- For global actions, callback receives null
 
-### Action Confirmation
 ```php
-->askConfirmation()
-->askConfirmation(string|TranslatableInterface $message)
-->askConfirmation(string|TranslatableInterface $message, string|TranslatableInterface $buttonLabel)
-->askConfirmation(false)  // Disable confirmation
+->displayIf(fn($entity) => $this->isGranted('ROLE_ADMIN'))
+->displayIf(fn($entity) => $entity->getStatus() === 'draft')
 ```
 
-Available placeholders in confirmation message:
+For global actions, callback receives `null`:
+```php
+->displayIf(fn($entity) => $entity === null || $this->isGranted('ROLE_ADMIN'))
+```
+
+### Confirmation Dialog
+
+```php
+->askConfirmation()                                          // Default message
+->askConfirmation('Are you sure?')                          // Custom message
+->askConfirmation('Delete this item?', 'Confirm Deletion')  // Message + button
+->askConfirmation(false)                                     // Disable confirmation
+```
+
+**Available placeholders:**
 - `%action_name%` - Action label
 - `%entity_name%` - Entity label (singular)
 - `%entity_id%` - Entity ID
 
-### Global Actions
+### Global Action
+
 ```php
-->createAsGlobalAction()
+->createAsGlobalAction()            // Action for entire page (not per-entity)
 ```
-- Creates action for entire page (not per entity)
+
+---
+
+## Batch Actions
+
+### Configuration
+
+```php
+use EasyCorp\Bundle\EasyAdminBundle\Dto\BatchActionDto;
+
+public function configureActions(Actions $actions): Actions
+{
+    $batchPublish = Action::new('batchPublish', 'Publish')
+        ->linkToCrudAction('batchPublish')
+        ->addCssClass('btn btn-success')
+        ->setIcon('fa fa-check');
+
+    return $actions->addBatchAction($batchPublish);
+}
+
+// In configureCrud() - optional confirmation
+public function configureCrud(Crud $crud): Crud
+{
+    return $crud->askConfirmationOnBatchActions('Perform action on %num_items% items?');
+}
+```
+
+### Batch Action Handler
+
+```php
+public function batchPublish(BatchActionDto $batchActionDto): Response
+{
+    $entityManager = $this->container->get('doctrine')->getManagerForClass($batchActionDto->getEntityFqcn());
+    $repository = $entityManager->getRepository($batchActionDto->getEntityFqcn());
+
+    foreach ($batchActionDto->getEntityIds() as $id) {
+        $entity = $repository->find($id);
+        if ($entity && method_exists($entity, 'setStatus')) {
+            $entity->setStatus('published');
+            $entity->setPublishedAt(new \DateTime());
+        }
+    }
+
+    $entityManager->flush();
+
+    $this->addFlash('success', sprintf('Published %d items', count($batchActionDto->getEntityIds())));
+
+    return $this->redirect($batchActionDto->getReferrerUrl());
+}
+```
+
+### BatchActionDto Methods
+
+```php
+$dto->getEntityFqcn()               // Entity class name
+$dto->getEntityIds()                // Array of selected IDs
+$dto->getReferrerUrl()              // URL to redirect back to
+```
+
+---
 
 ## Action Groups
 
+Group related actions in a dropdown.
+
 ### Creating Action Groups
+
 ```php
-ActionGroup::new(string $name, ?string $label = null, ?string $icon = null)
-    ->addAction(Action $action)
-    ->addMainAction(Action $action)  // For split button
+use EasyCorp\Bundle\EasyAdminBundle\Config\ActionGroup;
+
+$exportGroup = ActionGroup::new('Export', 'fa fa-download')
+    ->addAction(Action::new('exportCsv')->linkToCrudAction('exportCsv'))
+    ->addAction(Action::new('exportPdf')->linkToCrudAction('exportPdf'))
+    ->addAction(Action::new('exportXml')->linkToCrudAction('exportXml'));
+
+return $actions->add(Crud::PAGE_INDEX, $exportGroup);
 ```
 
-### Action Group Configuration
+### Split Button (Main Action + Dropdown)
+
 ```php
-->createAsGlobalActionGroup()
-->displayIf(callable $callback)
+$exportGroup = ActionGroup::new('Export')
+    ->addMainAction(Action::new('exportCsv')->linkToCrudAction('exportCsv'))
+    ->addAction(Action::new('exportPdf')->linkToCrudAction('exportPdf'))
+    ->addAction(Action::new('exportXml')->linkToCrudAction('exportXml'));
 ```
 
-### Styling
+### Group Styling
+
 ```php
 ->asPrimaryActionGroup()
 ->asDefaultActionGroup()
 ->asSuccessActionGroup()
 ->asWarningActionGroup()
 ->asDangerActionGroup()
-->setLabel(string|false $label)
-->setIcon(string $icon)
-->addCssClass(string $class)
-->setHtmlAttributes(array $attributes)
+->setLabel('Actions')
+->setIcon('fa fa-cog')
+->addCssClass('custom-class')
+->setHtmlAttributes([...])
 ```
 
-### Organization
+### Group Organization
+
 ```php
-->addHeader(string $header)
-->addDivider()
+$group = ActionGroup::new('Actions')
+    ->addAction(Action::new('edit'))
+    ->addDivider()                          // Add separator
+    ->addHeader('Export Options')           // Add header
+    ->addAction(Action::new('exportCsv'))
+    ->addAction(Action::new('exportPdf'));
 ```
 
-## Batch Actions
+### Conditional Display
 
-### Configuration
 ```php
-$actions->addBatchAction(Action::new('actionName')
-    ->linkToCrudAction('methodName')
-    ->addCssClass('btn btn-primary')
-    ->setIcon('fa fa-icon'))
+->displayIf(fn($entity) => $this->isGranted('ROLE_ADMIN'))
 ```
 
-### Batch Action Handler
-Method receives `BatchActionDto` with:
-```php
-$batchActionDto->getEntityFqcn()      // Entity class name
-$batchActionDto->getEntityIds()       // Array of selected IDs
-```
+---
 
-### Batch Confirmation
-In `configureCrud()`:
-```php
-$crud->askConfirmationOnBatchActions(bool|string|TranslatableInterface $config)
-```
+## Complete Examples
 
-Available placeholders:
-- `%action_name%` - Batch action name
-- `%num_items%` - Number of selected items
-
-## Action Extensions
-
-Create extension class implementing `ActionsExtensionInterface`:
+### Custom Single Action
 
 ```php
-class CustomActionExtension implements ActionsExtensionInterface
+public function configureActions(Actions $actions): Actions
 {
-    public function supports(AdminContext $context): bool
-    {
-        // Return true to enable extension
-        return $context->getCrud()->getCurrentPage() === Crud::PAGE_DETAIL;
-    }
+    $export = Action::new('export', 'Export')
+        ->linkToCrudAction('exportToCsv')
+        ->setCssClass('btn btn-info')
+        ->setIcon('fa fa-download')
+        ->displayIf(fn($entity) => $entity->isExportable())
+        ->askConfirmation('Export this entity?');
 
-    public function extend(Actions $actions, AdminContext $context): void
-    {
-        // Add, remove, or modify actions
-        $actions->add(Crud::PAGE_DETAIL, Action::new('custom'));
-    }
+    return $actions->add(Crud::PAGE_DETAIL, $export);
+}
+
+public function exportToCsv(AdminContext $context): Response
+{
+    $entity = $context->getEntity()->getInstance();
+    // Generate CSV...
+    return new Response($csv, 200, [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="export.csv"',
+    ]);
 }
 ```
 
-Tag service with `ea.action_extension`.
+### Custom Global Action
 
-## Entity Action Display
+```php
+$exportAll = Action::new('exportAll', 'Export All')
+    ->linkToCrudAction('exportAllToCsv')
+    ->createAsGlobalAction()
+    ->setCssClass('btn btn-success')
+    ->setIcon('fa fa-file-export')
+    ->askConfirmation('Export all items?', 'Export');
 
-### Dropdown vs Inline (Index Page)
+return $actions->add(Crud::PAGE_INDEX, $exportAll);
+```
+
+### Complex Permission Logic
+
+```php
+return $actions
+    ->setPermission(Action::DELETE, 'ROLE_SUPER_ADMIN')
+    ->update(Crud::PAGE_INDEX, Action::EDIT, fn(Action $action) =>
+        $action->displayIf(fn($entity) =>
+            $this->isGranted('ROLE_EDITOR') ||
+            $entity->getAuthor() === $this->getUser()
+        )
+    )
+    ->update(Crud::PAGE_INDEX, Action::DELETE, fn(Action $action) =>
+        $action->displayIf(fn($entity) =>
+            $this->isGranted('ROLE_SUPER_ADMIN') &&
+            $entity->getId() !== $this->getUser()->getId()
+        )
+    );
+```
+
+---
+
+## Row Action Configuration
+
+### Default Row Action
+
 In `configureCrud()`:
 ```php
-$crud->showEntityActionsInlined()
+$crud->setDefaultRowAction(Action::EDIT)
+$crud->setDefaultRowAction([Action::DETAIL, Action::EDIT])  // Fallback chain
+$crud->setDefaultRowAction(null)                             // Disable row click
 ```
-- Default: Actions in dropdown
-- After method call: Actions displayed inline
 
-## Custom Symfony Controller Integration
+### Custom Row Click Trigger
 
-### AdminRoute Attribute
 ```php
-#[AdminRoute(path: '/custom', name: 'custom')]
-class CustomController extends AbstractController
-{
-    #[AdminRoute(path: '/{id}', name: 'detail')]
-    public function detail() { }
-}
+$crud->setDefaultRowAction(Action::DETAIL)
+    ->setRowClickTrigger('td:first-child')      // Only first cell
+    ->setRowClickTrigger('td.entity-name')      // Specific class
+    ->setRowClickTrigger(null)                  // Disable click entirely
 ```
 
-**Options:**
-- `path` - URL path segment
-- `name` - Route name segment
-- `allowedDashboards` - Array of dashboard classes to include
-- `deniedDashboards` - Array of dashboard classes to exclude
+### Display Actions Inline
 
-**Route Generation:**
-- Final path: `/admin` + controller path + action path
-- Final name: `admin_` + controller name + `_` + action name
+In `configureCrud()`:
+```php
+$crud->showEntityActionsInlined()               // Show actions inline instead of dropdown
+```
+
+---
 
 ## URL Generation
 
-### Pretty URLs
+### From Controller
+
 ```php
-// In controller
+// Using route names
 return $this->redirectToRoute('admin_product_edit', ['entityId' => $id]);
 
-// In template
-{{ path('admin_product_detail', {entityId: product.id}) }}
+// Using AdminUrlGenerator
+use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+
+public function __construct(private AdminUrlGenerator $adminUrlGenerator) {}
+
+public function someAction(): Response
+{
+    $url = $this->adminUrlGenerator
+        ->setController(ProductCrudController::class)
+        ->setAction(Action::EDIT)
+        ->setEntityId($id)
+        ->set('customParam', 'value')
+        ->generateUrl();
+
+    return $this->redirect($url);
+}
 ```
 
-### AdminUrlGenerator (Legacy/Dynamic)
-```php
-$url = $adminUrlGenerator
-    ->setController(ProductCrudController::class)
-    ->setAction(Action::EDIT)
-    ->setEntityId($id)
-    ->generateUrl();
-```
+### From Template
 
-### Template Helper
 ```twig
+{# Route-based #}
+{{ path('admin_product_edit', {entityId: product.id}) }}
+
+{# AdminUrlGenerator #}
 {% set url = ea_url()
     .setController('App\\Controller\\Admin\\ProductCrudController')
     .setAction('edit')
     .setEntityId(product.id) %}
 ```
 
-## Default Row Action
+---
 
-Configure in `configureCrud()`:
-```php
-$crud->setDefaultRowAction(Action::EDIT)
-$crud->setDefaultRowAction([Action::EDIT, Action::DETAIL])  // Fallback chain
-$crud->setDefaultRowAction(null)  // Disable
-```
+## Quick Tips
 
-Available options:
-- Single action: `Action::EDIT`, `Action::DETAIL`, `'customAction'`
-- Fallback array: `[Action::DETAIL, Action::EDIT]`
-- `null` - Disable row click behavior
+1. **Permissions:** Use `setPermission()` for role-based access, `displayIf()` for complex logic
+2. **Performance:** Conditional `displayIf()` runs for every entity - keep it fast
+3. **Icons:** Use FontAwesome classes (e.g., `fa fa-download`)
+4. **Batch actions:** Keep handlers fast, process in chunks for large datasets
+5. **Confirmations:** Always confirm destructive batch actions
+6. **URLs:** Prefer route names over AdminUrlGenerator when possible
+7. **Global actions:** Use `createAsGlobalAction()` for page-level operations
